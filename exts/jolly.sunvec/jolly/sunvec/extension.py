@@ -13,11 +13,12 @@ import omni.usd
 # Any class derived from `omni.ext.IExt` in top level module (defined in `python.modules` of `extension.toml`) will be
 # instantiated when extension gets enabled and `on_startup(ext_id)` will be called. Later when extension gets disabled
 # on_shutdown() is called.
-class MyExtension(omni.ext.IExt):
-    ctr = 0  # Keeps track of how many spheres have been created for cleanup..TODO: Search for max sphere instead.
+class SunVec(omni.ext.IExt):
+    # The scope for all content related to this extension.
+    # NOTE: Assumes no one would possibly have a /JollyBin directory.
     subdir = "/World/JollyBin/"
-    def sunvec(self, setting: Setting, refrac):
-        azimuth, elevation = sunpos(setting.get_date(), setting.get_loc(), refrac)
+    def sunvec(self, setting: Setting):
+        azimuth, elevation = sunpos(setting.get_date(), setting.get_loc(), True)
         azimuth = rad(azimuth)
         elevation = rad(elevation)
         return(azimuth, pi/2 - elevation)
@@ -111,8 +112,6 @@ class MyExtension(omni.ext.IExt):
                 def place_sun(name, sunvector_sph):
                     create_distant_light(self.subdir, name)
                     orient_distant_light(self.subdir, name, sunvector_sph)
-                    # self.ctr += 1
-                    # create_sphere(scale_vec(sunvector_xyz(theta, phi), 120), 20, f"sphere{self.ctr}")
 
                 def polysun(n):
                     set_setting_start()
@@ -127,14 +126,6 @@ class MyExtension(omni.ext.IExt):
                     
                 ui.Button("Place Sun", clicked_fn=lambda: polysun(50), height=50)
 
-                # def date_add():
-                #     set_setting_start()
-                #     set_setting_end()
-                #     sets = SettingRange(self.setting_start, self.setting_end).subdiv_range(10)
-                #     for setting in sets:
-                #         print(setting)
-
-                # ui.Button("Test Date Increment", clicked_fn=lambda: date_add(), height=50)
 
                 def cleanup():
                     delete("/World/JollyBin")
