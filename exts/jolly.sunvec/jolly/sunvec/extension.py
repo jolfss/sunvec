@@ -84,7 +84,7 @@ class SunVec(omni.ext.IExt):
         print("JOLLY.SUNVEC..startup")
         
         # Construct UI
-        self._window = ui.Window("JOLLY.SUNVEC", width=500, height=800)
+        self._window = ui.Window("JOLLY.SUNVEC", width=500, height=900)
         with self._window.frame:
             with ui.VStack(height=30):
                 # Set location.
