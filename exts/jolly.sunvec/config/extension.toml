@@ -1,10 +1,10 @@
 [package]
-version = "1.0.0"
+version = "1.0.1"
 
 title = "SunVec"
 description="Put the sun where you want it, even in many places."
 readme  = "docs/README.md"
-repository = ""
+repository = "git://github.com/Jolfs/jolly.sunvec.git?branch=main&dir=exts"
 category = "Lighting & Rendering"
 keywords = ["daylight", "sun", "sunpath", "sky", "distant light"]
 

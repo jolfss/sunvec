@@ -45,11 +45,17 @@ def create_distant_light(path, name):
                     attributes={'angle': 1.0, 'intensity': 100},
                     create_default_xform=True)
 
-def color_distant_light(path, name, red, green, blue):
+def color_distant_light(path, name, rgb):
     omni.kit.commands.execute('ChangeProperty',
                         prop_path=Sdf.Path(F"{path}{name}.color"),
-                        value = (red, green, blue),
+                        value = rgb,
                         prev = (1,1,1))
+
+def intensity_distant_light(path, name, intensity):
+    omni.kit.commands.execute('ChangeProperty',
+                        prop_path=Sdf.Path(F"{path}{name}.intensity"),
+                        value = intensity,
+                        prev = 100)
 
 def orient_distant_light(path, name, vec3dspherical):
     omni.kit.commands.execute('ChangeProperty',

@@ -2,7 +2,7 @@ import copy
 from math import floor
 
 """
-NOTE: This was not documented great and is also somewhat imprecise.
+TODO: Improve precision and document/refactor.
 TS = Timespan
 S = Setting
 Valid Infix Operators
@@ -222,9 +222,7 @@ class SettingRange():
 
             self.span = self.end - self.start 
         else:
-            print("JOLLY.SUNVEC..start date is not before end date or locations mismatch, defaulting to (start date -> start date)")
-            print(F"START<{setting_start}>")
-            print(F"END<{setting_end}>")
+            print("JOLLY.SUNVEC..start date !<< end date or locations mismatch, defaulting to start date -> start date")
             self.start = setting_start
             self.end = setting_start
 

@@ -14,3 +14,6 @@ def read_int(field: ui.AbstractValueModel):
 
 def read_float(field: ui.AbstractValueModel):
     return(field.model.as_float)
+
+def read_bool(field: ui.AbstractValueModel):
+    return(field.model.as_bool)
