@@ -1,5 +1,5 @@
 from math import pi
-from jolly.sunvec.setting import Setting, SettingRange
+from jolly.sunvec.setting import Setting, SettingRange, Timespan
 from jolly.sunvec.spectrum import RingColor, Spectrum, VisionType
 from jolly.sunvec.sunpos import sunpos
 from jolly.sunvec.cmds_common import *
@@ -32,10 +32,10 @@ class SunVec(omni.ext.IExt):
     # ext_id is current extension id. It can be used with extension manager to query additional information, like where
     # this extension is located on filesystem.
     def on_startup(self, ext_id):
-        
-
-        self.sun_count = 50
-        self.light_intensity = 100
+    
+        sun_count = 50
+        light_intensity = 100
+        increment_mode = 0
         # Directory for extension primitives.
         create_scope(self.subdir[0:len(self.subdir)-1])
         
@@ -55,22 +55,6 @@ class SunVec(omni.ext.IExt):
             self.setting_start = Setting(lat, long, year, month, day, hour, minute, second, timezone)
             lb_start_date.text = str(self.setting_start)
 
-        def set_setting_end_visibility(visible):
-            lb_end_year.visible = visible
-            lb_end_month.visible = visible
-            lb_end_day.visible = visible
-            lb_end_hour.visible = visible
-            lb_end_minute.visible = visible
-            lb_end_second.visible = visible
-            is_end_year.visible = visible
-            is_end_month.visible = visible
-            is_end_day.visible = visible
-            is_end_hour.visible = visible
-            is_end_minute.visible = visible
-            is_end_second.visible = visible
-            lb_end_date_title.visible = visible
-            lb_end_date.visible = visible
-
         def set_setting_end():
             lat = read_float(ff_lat)
             long = read_float(ff_long)
@@ -85,11 +69,44 @@ class SunVec(omni.ext.IExt):
             self.setting_end = Setting(lat, long, year, month, day, hour, minute, second, timezone)
             lb_end_date.text = str(self.setting_end)
 
+        def set_setting_end_visibility(visible):
+            vstack_end_setting.visible = visible
+            spacer_end_setting.visible = visible
+
+        def update_incrementer(dummy_arg):
+            years = read_int(is_increment_years)
+            months = read_int(is_increment_months)
+            days = read_int(is_increment_days)
+            hours = read_int(is_increment_hours)
+            minutes = read_int(is_increment_minutes)
+            seconds = read_int(is_increment_seconds)
+            self.timespan_increment = Timespan(years, months, days, hours, minutes, seconds)
+            self.increment_step = read_int(is_increment_steps)
+
+        def set_incrementer_visibility(visible):
+            lb_incremental_step.visible = visible
+            sep_incremental_step.visible = visible
+            lb_incremental_blank_sep.visible = visible
+            hstack_incremental_step.visible = visible
+            if self.increment_mode == 1:
+                lb_increment_steps.visible = True
+                is_increment_steps.visible = True
+            else:
+                lb_increment_steps.visible = False
+                is_increment_steps.visible = False
+                
+            if self.increment_mode == 0:
+                lb_sun_count.visible = True
+                is_sun_count.visible = True
+            else:
+                lb_sun_count.visible = False
+                is_sun_count.visible = False
+
         def update_setting():
             set_setting_start()
             set_setting_end()
         
-        def update_simulation(avm):
+        def update_simulation(dummy_arg):
             update_setting()
             polysun()
         
@@ -100,7 +117,7 @@ class SunVec(omni.ext.IExt):
         print("JOLLY.SUNVEC..startup")
 
         ### START OF UI BLOCK ###
-        self._window = ui.Window("JOLLY.SUNVEC", width=500, height=900)
+        self._window = ui.Window("JOLLY.SUNVEC", width=500, height=1100)
         with self._window.frame:
             with ui.VStack(height=30):
                 # Set location.
@@ -116,20 +133,64 @@ class SunVec(omni.ext.IExt):
 
                 cb_increment_mode = ui.ComboBox(0,"Start to End", "Start and Increment", "Start and Increment Until End").model
                 def increment_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
-                    increment_mode = combo_model.get_item_value_model().as_int
-                    if increment_mode != 1:
+                    self.increment_mode = combo_model.get_item_value_model().as_int
+                    if self.increment_mode == 0:
                         set_setting_end_visibility(True)
-                    else:
+                        set_incrementer_visibility(False)
+                    elif self.increment_mode == 1:
                         set_setting_end_visibility(False)
+                        set_incrementer_visibility(True)
+                    elif self.increment_mode == 2:
+                        set_setting_end_visibility(True)
+                        set_incrementer_visibility(True)
                 cb_increment_mode.add_item_changed_fn(increment_changed_fn)
-                ui.Label("")
+                
+                ### VISIBLE IF [incrementer_mode == 1 or 2]
+                lb_incremental_blank_sep = ui.Label("", height=15, visible=False)
+                sep_incremental_step = ui.Separator(visible=False)
+                lb_incremental_step = ui.Label("Incremental Step", height=30, visible=False)
 
+                hstack_incremental_step = ui.HStack(visible=False)
+                with hstack_incremental_step:
+                    with ui.VStack():
+                        ui.Label("Years")
+                        is_increment_years = ui.IntSlider(min=0,max=10)
+                        is_increment_years.model.add_end_edit_fn(update_incrementer)
+                    with ui.VStack():
+                        ui.Label("Months")
+                        is_increment_months = ui.IntSlider(min=0,max=11)
+                        is_increment_months.model.add_end_edit_fn(update_incrementer)
+                    with ui.VStack():
+                        ui.Label("Days")
+                        is_increment_days = ui.IntSlider(min=0,max=31)
+                        is_increment_days.model.add_end_edit_fn(update_incrementer)
+                    with ui.VStack():
+                        ui.Label("Hours")
+                        is_increment_hours = ui.IntSlider(min=0,max=23)
+                        is_increment_hours.model.add_end_edit_fn(update_incrementer)
+                    with ui.VStack():
+                        ui.Label("Minutes")
+                        is_increment_minutes = ui.IntSlider(min=0,max=59)
+                        is_increment_minutes.model.add_end_edit_fn(update_incrementer)
+                    with ui.VStack():
+                        ui.Label("Seconds")
+                        is_increment_seconds = ui.IntSlider(min=0,max=59)
+                        is_increment_seconds.model.add_end_edit_fn(update_incrementer)
+                ### VISIBLE IF [incrementer_mode == 1]
+                lb_increment_steps = ui.Label("Increment Steps",height=30,visible=False)
+                is_increment_steps = ui.IntSlider(min=0,max=100,visible=False)
+                is_increment_months.model.add_end_edit_fn(update_incrementer)
+                ### END VISIBLE
+                ### END VISIBLE
+                update_incrementer(None)  # Hides the Incrementer by default (mode = 0)
+
+                ui.Label(""); ui.Separator()
                 with ui.HStack():
                     # Collects [setting_start] parameters.
-                    with ui.VStack(height=30) as start_params:  # Why doesn't "as" do anything here?"
+                    with ui.VStack(height=15) as start_params:  # Why doesn't "as" do anything here?"
                         ui.Label("Starting Date", height=30)
-                        lb_start_date = ui.Label("")
-                        ui.Label("Year")
+                        lb_start_date = ui.Label(" ")
+                        ui.Label("Year",height=30)
                         is_start_year = ui.IntSlider(min=1901,max=2099)
                         is_start_year.model.add_end_edit_fn(update_simulation)
                         ui.Label("Month")
@@ -148,30 +209,33 @@ class SunVec(omni.ext.IExt):
                         is_start_second = ui.IntSlider(min=0,max=59)
                         is_start_second.model.add_end_edit_fn(update_simulation)
                         # start_params == None
-                    ui.Separator(width=10)
+                    spacer_end_setting = ui.Spacer(width=10)
+
                     # Collects [setting_end] parameters.
-                    with ui.VStack(height=30):
-                        lb_end_date_title = ui.Label("Ending Date", height=30)
+                    vstack_end_setting = ui.VStack(height=15)
+                    with vstack_end_setting:
+                        ### VISIBLE IF [increment_mode == 0 or 2]
+                        ui.Label("Ending Date", height=30)
                         lb_end_date = ui.Label("")
-                        lb_end_year = ui.Label("Year")
+                        ui.Label("Year",height=30)
                         is_end_year = ui.IntSlider(min=1901,max=2099)
                         is_end_year.model.add_end_edit_fn(update_simulation)
-                        lb_end_month = ui.Label("Month")
+                        ui.Label("Month")
                         is_end_month = ui.IntSlider(min=1,max=12)
                         is_end_month.model.add_end_edit_fn(update_simulation)
-                        lb_end_day = ui.Label("Day")
+                        ui.Label("Day")
                         is_end_day = ui.IntSlider(min=1,max=31)
                         is_end_day.model.add_end_edit_fn(update_simulation)
-                        lb_end_hour = ui.Label("Hour")
+                        ui.Label("Hour")
                         is_end_hour = ui.IntSlider(min=0,max=23)
                         is_end_hour.model.add_end_edit_fn(update_simulation)
-                        lb_end_minute = ui.Label("Minute")
+                        ui.Label("Minute")
                         is_end_minute = ui.IntSlider(min=0,max=59)
                         is_end_minute.model.add_end_edit_fn(update_simulation)
-                        lb_end_second = ui.Label("Second")
+                        ui.Label("Second")
                         is_end_second = ui.IntSlider(min=0,max=59)
                         is_end_second.model.add_end_edit_fn(update_simulation)
-                
+                        ### END VISIBLE
                 ui.Label(""); ui.Separator(height=15)
 
                 # Options for Color & Accessibility
@@ -196,17 +260,19 @@ class SunVec(omni.ext.IExt):
                         update_simulation(None)
                     cb_color_filter.add_item_changed_fn(filter_changed_fn)
 
-                ui.Label("Solar Path Refinement")
+                ### VISIBLE IF [increment_mode == 0]
+                lb_sun_count = ui.Label("Solar Path Refinement")
                 is_sun_count = ui.IntSlider(min=0,max=365)
                 def sun_count_changed_fn(sun_count_model : ui.AbstractValueModel):
-                    self.sun_count = sun_count_model.as_int
+                    sun_count = sun_count_model.as_int
                     update_simulation(None)
                 is_sun_count.model.add_end_edit_fn(sun_count_changed_fn)
+                ### END VISIBLE
 
                 ui.Label("Light Intensity")
                 is_light_intensity = ui.IntSlider(min=0,max=200)
                 def light_intensity_changed_fn(is_light_intensity : ui.AbstractValueModel):
-                    self.light_intensity = is_light_intensity.as_int
+                    light_intensity = is_light_intensity.as_int
                     update_simulation(None)
                 is_light_intensity.model.add_end_edit_fn(light_intensity_changed_fn)
                 
@@ -242,16 +308,26 @@ class SunVec(omni.ext.IExt):
         write(is_sun_count, my_suns)
         write(is_light_intensity, my_intensity)
 
+        # Write to label
+        update_setting()
+
         def place_sun(name, sunvector_sph, color=(1,1,1)):
                         create_distant_light(self.subdir, name)
                         color_distant_light(self.subdir, name, color)
-                        intensity_distant_light(self.subdir, name, self.light_intensity)
+                        intensity_distant_light(self.subdir, name, light_intensity)
                         orient_distant_light(self.subdir, name, sunvector_sph)
 
         def polysun():
-            self.cleanup()
+            self.cleanup()  # TODO: Smart cleanup; don't recalculate positions if only color change..etc.
             update_setting()
-            sets = SettingRange(self.setting_start, self.setting_end).subdiv_range(self.sun_count)
+            if increment_mode == 0:
+                sets = SettingRange(self.setting_start, self.setting_end).subdiv_range(sun_count)
+            elif increment_mode == 1:
+                ts = self.timespan_increment
+                sets = SettingRange(self.setting_start, self.setting_end).increment_range(ts)
+            elif increment_mode == 2:
+                sets = SettingRange(self.setting_start, self.setting_end).increment_until_range(ts)
+
             myspectrum = Spectrum(sets)
             i = 0
             for s in sets:
