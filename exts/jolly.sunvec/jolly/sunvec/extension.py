@@ -167,14 +167,14 @@ class SunVec(omni.ext.IExt):
                     self.cb_color_filter.add_item_changed_fn(filter_changed_fn)
 
                 ui.Label("Solar Path Refinement")
-                self.is_sun_count = ui.IntSlider(min=0,max=350)
+                self.is_sun_count = ui.IntSlider(min=0,max=365)
                 def sun_count_changed_fn(sun_count_model : ui.AbstractValueModel):
                     self.sun_count = sun_count_model.as_int
                     update_simulation(None)
                 self.is_sun_count.model.add_end_edit_fn(sun_count_changed_fn)
 
                 ui.Label("Light Intensity")
-                self.is_light_intensity = ui.IntSlider(min=0,max=1000)
+                self.is_light_intensity = ui.IntSlider(min=0,max=200)
                 def light_intensity_changed_fn(is_light_intensity : ui.AbstractValueModel):
                     self.light_intensity = is_light_intensity.as_int
                     update_simulation(None)
