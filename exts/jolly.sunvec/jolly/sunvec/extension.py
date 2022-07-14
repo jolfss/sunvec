@@ -94,9 +94,19 @@ class SunVec(omni.ext.IExt):
                 self.ff_long = ui.FloatField()
                 ui.Label("Timezone (from UTC)")
                 self.is_timezone = ui.IntSlider(min=-12,max=14)
+                ui.Label(""); ui.Separator(height=15)
+
+                ui.Label("Increment Mode",height=15)
+
+                self.cb_increment_mode = ui.ComboBox(0,"Start to End", "Start and Increment", "Start and Increment Until End").model
+                def increment_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
+                    self.increment_mode = combo_model.get_item_value_model().as_int
+                self.cb_increment_mode.add_item_changed_fn(increment_changed_fn)
+                ui.Label("")
+
                 with ui.HStack():
                     # Collects [setting_start] parameters.
-                    with ui.VStack(height=30) as start_params:  # Why doesn't "as do anything here?"
+                    with ui.VStack(height=30) as start_params:  # Why doesn't "as" do anything here?"
                         ui.Label("Starting Date", height=30)
                         lb_start_date = ui.Label("")
                         ui.Label("Year")
@@ -141,6 +151,8 @@ class SunVec(omni.ext.IExt):
                         ui.Label("Second")
                         self.is_end_second = ui.IntSlider(min=0,max=59)
                         self.is_end_second.model.add_end_edit_fn(update_simulation)
+                
+                ui.Label(""); ui.Separator(height=15)
 
                 # Options for Color & Accessibility
                 ui.Label("Color Settings", height=45)
@@ -161,8 +173,6 @@ class SunVec(omni.ext.IExt):
                             self.vision_type = VisionType.DEUTERANOPIA
                         elif mode == 3:
                             self.vision_type = VisionType.TRITANOPIA
-                        else:
-                            print("JOLLY.SUNVEC..unknown vision_type inputted, resetting to default -> FULLCOLOR")
                         update_simulation(None)
                     self.cb_color_filter.add_item_changed_fn(filter_changed_fn)
 
