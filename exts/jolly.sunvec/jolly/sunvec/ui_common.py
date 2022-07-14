@@ -98,10 +98,11 @@ def combo_box(name, options, *register_fns):
     return new_element
 
 class Visibles():
-    _members = []
-    _state = False
+
 
     def __init__(self, name, default=False):
+        self._members = []
+        self._state = False
         self.name = name
         self.visibility = default
     
@@ -116,7 +117,6 @@ class Visibles():
             member.visible = self._state
         
     def set_state(self, new_state):
-        print(F"vg_{self.name} attemping {self._state} -> {new_state}")
         self._state = new_state
         for member in self._members:
             member.visible = new_state
@@ -132,12 +132,11 @@ class VisibilityGroups():
             self._visibility_groups.append(vg)
     
     """
-    [island_enable(vg0, vg1, ...)] makes only the input VisibilityGroups visible.
+    [island_enable(vg0, vg1, ...)] makes only the keep_true VisibilityGroups visible.
     """
     def island_enable(self, *keep_true):
         for vg in self._visibility_groups:
             vg.set_state(False)
         for vg in keep_true:
             vg.set_state(True)
-
 

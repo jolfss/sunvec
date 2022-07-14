@@ -11,9 +11,6 @@ import omni.kit.commands
 import omni.usd
 from datetime import datetime
 
-# Any class derived from `omni.ext.IExt` in top level module (defined in `python.modules` of `extension.toml`) will be
-# instantiated when extension gets enabled and `on_startup(ext_id)` will be called. Later when extension gets disabled
-# on_shutdown() is called.
 class SunVec(omni.ext.IExt):
     # The scope for all content related to this extension.
     # NOTE: Assumes no one would possibly have a /World/JollyBin directory.
@@ -26,16 +23,52 @@ class SunVec(omni.ext.IExt):
         elevation = rad(elevation)
         return(azimuth, pi/2 - elevation)
     
-    def cleanup(self):
-            delete("/World/JollyBin")
-
-    # ext_id is current extension id. It can be used with extension manager to query additional information, like where
-    # this extension is located on filesystem.
-    def on_startup(self, ext_id):
+    def place_sun(self, name, sunvector_sph, color=(1,1,1)):
+                create_distant_light(self.subdir, name)
+                color_distant_light(self.subdir, name, color)
+                intensity_distant_light(self.subdir, name, self.light_intensity)
+                orient_distant_light(self.subdir, name, sunvector_sph)
     
+    def cleanup(self):
+            delete(self.subdir[0:len(self.subdir)-1])
+
+    # Mode types, usually correspond to a visibility group.
+    MODE_SUBDIVIDE = 0
+    MODE_STEP = 1
+    MODE_STEP_UNTIL = 2
+
+    # Default Mode
+    mode = MODE_SUBDIVIDE
+
+    #Handles which ui elements are displayed at a time.
+    visibles = VisibilityGroups()
+
+    # Visibles are groups elements which are always displayed together and hidden together.
+    vg_subdivide = Visibles("subdivide", default=True)
+    vg_step = Visibles("step", default=False)
+    vg_step_until = Visibles("step until", default=False)
+    visibles.register_groups(vg_subdivide, vg_step, vg_step_until)
+
+    def mode_subdivide(self):
+        self.mode = self.MODE_SUBDIVIDE
+        self.visibles.island_enable(self.vg_subdivide)
+    
+    def mode_step(self):
+        self.mode = self.MODE_STEP
+        self.visibles.island_enable(self.vg_step)
+        
+    def mode_step_until(self):
+        self.mode = self.MODE_STEP_UNTIL
+        self.visibles.island_enable(self.vg_step_until)
+
+
+    ################################
+    ### omniverse extension main ###
+    ################################
+    def on_startup(self, ext_id):
         sun_count = 50
-        light_intensity = 100
-        increment_mode = 0
+        self.light_intensity = 100
+
         # Directory for extension primitives.
         create_scope(self.subdir[0:len(self.subdir)-1])
         
@@ -69,11 +102,7 @@ class SunVec(omni.ext.IExt):
             self.setting_end = Setting(lat, long, year, month, day, hour, minute, second, timezone)
             lb_end_date.text = str(self.setting_end)
 
-        def set_setting_end_visibility(visible):
-            vstack_end_setting.visible = visible
-            spacer_end_setting.visible = visible
-
-        def update_incrementer(dummy_arg):
+        def update_incrementer(dummy_arg=None):
             years = read_int(is_increment_years)
             months = read_int(is_increment_months)
             days = read_int(is_increment_days)
@@ -83,30 +112,11 @@ class SunVec(omni.ext.IExt):
             self.timespan_increment = Timespan(years, months, days, hours, minutes, seconds)
             self.increment_step = read_int(is_increment_steps)
 
-        def set_incrementer_visibility(visible):
-            lb_incremental_step.visible = visible
-            sep_incremental_step.visible = visible
-            lb_incremental_blank_sep.visible = visible
-            hstack_incremental_step.visible = visible
-            if self.increment_mode == 1:
-                lb_increment_steps.visible = True
-                is_increment_steps.visible = True
-            else:
-                lb_increment_steps.visible = False
-                is_increment_steps.visible = False
-                
-            if self.increment_mode == 0:
-                lb_sun_count.visible = True
-                is_sun_count.visible = True
-            else:
-                lb_sun_count.visible = False
-                is_sun_count.visible = False
-
         def update_setting():
             set_setting_start()
             set_setting_end()
         
-        def update_simulation(dummy_arg):
+        def update_simulation(dummy_arg=None):
             update_setting()
             polysun()
         
@@ -116,164 +126,103 @@ class SunVec(omni.ext.IExt):
 
         print("JOLLY.SUNVEC..startup")
 
-        ### START OF UI BLOCK ###
+        ### Omniverse UI
         self._window = ui.Window("JOLLY.SUNVEC", width=500, height=1100)
         with self._window.frame:
             with ui.VStack(height=30):
                 # Set location.
-                ui.Label("Latitude")
-                ff_lat = ui.FloatField()
-                ui.Label("Longitude")
-                ff_long = ui.FloatField()
-                ui.Label("Timezone (from UTC)")
-                is_timezone = ui.IntSlider(min=-12,max=14)
-                ui.Label(""); ui.Separator(height=15)
+                ff_lat = float_field("Latitude", -90, 90)
+                ff_long = float_field("Longitude", -180, 180)
+                is_timezone = int_slider("Timezone (from UTC)",-12, 14)
 
-                ui.Label("Increment Mode",height=15)
-
-                cb_increment_mode = ui.ComboBox(0,"Start to End", "Start and Increment", "Start and Increment Until End").model
-                def increment_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
-                    self.increment_mode = combo_model.get_item_value_model().as_int
-                    if self.increment_mode == 0:
-                        set_setting_end_visibility(True)
-                        set_incrementer_visibility(False)
-                    elif self.increment_mode == 1:
-                        set_setting_end_visibility(False)
-                        set_incrementer_visibility(True)
-                    elif self.increment_mode == 2:
-                        set_setting_end_visibility(True)
-                        set_incrementer_visibility(True)
-                cb_increment_mode.add_item_changed_fn(increment_changed_fn)
+                separate(15)
                 
-                ### VISIBLE IF [incrementer_mode == 1 or 2]
-                lb_incremental_blank_sep = ui.Label("", height=15, visible=False)
-                sep_incremental_step = ui.Separator(visible=False)
-                lb_incremental_step = ui.Label("Incremental Step", height=30, visible=False)
+                # Increment Mode
+                def increment_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
+                        mode = combo_model.get_item_value_model().as_int
+                        if mode == 0:   self.visibles.island_enable(self.vg_subdivide)
+                        elif mode == 1: self.visibles.island_enable(self.vg_step)
+                        elif mode == 2: self.visibles.island_enable(self.vg_step_until)
+                        update_simulation()
+                combo_box("Increment Type",\
+                    ("Subdivide", "Step", "Step Until"), (ITEM_CHANGED, increment_changed_fn))
+                
+                # Incremental Stepsize
+                frame_increment = ui.Frame() ### VISION GROUP
+                self.vg_step.add(frame_increment)
+                self.vg_step_until.add(frame_increment)
+                with frame_increment:
+                    separate()
+                    ui.Label("Incremental Step", height=30)
+                    with ui.HStack():
+                        with ui.VStack(): is_increment_years = int_slider("Years", 0, 10, (END_EDIT, update_incrementer))
+                        with ui.VStack(): is_increment_months = int_slider("Months", 0, 12, (END_EDIT, update_incrementer))
+                        with ui.VStack(): is_increment_days = int_slider("Days", 0, 31, (END_EDIT, update_incrementer))  # TODO: Sync with month. Add listener?
+                        with ui.VStack(): is_increment_hours = int_slider("Hours", 0, 23, (END_EDIT, update_incrementer))
+                        with ui.VStack(): is_increment_minutes = int_slider("Minutes", 0, 59, (END_EDIT, update_incrementer))
+                        with ui.VStack(): is_increment_seconds = int_slider("Seconds", 0, 59, (END_EDIT, update_incrementer))
 
-                hstack_incremental_step = ui.HStack(visible=False)
-                with hstack_incremental_step:
-                    with ui.VStack():
-                        ui.Label("Years")
-                        is_increment_years = ui.IntSlider(min=0,max=10)
-                        is_increment_years.model.add_end_edit_fn(update_incrementer)
-                    with ui.VStack():
-                        ui.Label("Months")
-                        is_increment_months = ui.IntSlider(min=0,max=11)
-                        is_increment_months.model.add_end_edit_fn(update_incrementer)
-                    with ui.VStack():
-                        ui.Label("Days")
-                        is_increment_days = ui.IntSlider(min=0,max=31)
-                        is_increment_days.model.add_end_edit_fn(update_incrementer)
-                    with ui.VStack():
-                        ui.Label("Hours")
-                        is_increment_hours = ui.IntSlider(min=0,max=23)
-                        is_increment_hours.model.add_end_edit_fn(update_incrementer)
-                    with ui.VStack():
-                        ui.Label("Minutes")
-                        is_increment_minutes = ui.IntSlider(min=0,max=59)
-                        is_increment_minutes.model.add_end_edit_fn(update_incrementer)
-                    with ui.VStack():
-                        ui.Label("Seconds")
-                        is_increment_seconds = ui.IntSlider(min=0,max=59)
-                        is_increment_seconds.model.add_end_edit_fn(update_incrementer)
-                ### VISIBLE IF [incrementer_mode == 1]
-                lb_increment_steps = ui.Label("Increment Steps",height=30,visible=False)
-                is_increment_steps = ui.IntSlider(min=0,max=100,visible=False)
-                is_increment_months.model.add_end_edit_fn(update_incrementer)
-                ### END VISIBLE
-                ### END VISIBLE
-                update_incrementer(None)  # Hides the Incrementer by default (mode = 0)
+                is_increment_steps = int_slider("Number of Increment Steps", 0, 100, \
+                    (END_EDIT, update_incrementer))
+                
+                separate()
 
-                ui.Label(""); ui.Separator()
+                ### Time and Day Parameters
                 with ui.HStack():
-                    # Collects [setting_start] parameters.
-                    with ui.VStack(height=15) as start_params:  # Why doesn't "as" do anything here?"
-                        ui.Label("Starting Date", height=30)
-                        lb_start_date = ui.Label(" ")
-                        ui.Label("Year",height=30)
-                        is_start_year = ui.IntSlider(min=1901,max=2099)
-                        is_start_year.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Month")
-                        is_start_month = ui.IntSlider(min=1,max=12)
-                        is_start_month.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Day")
-                        is_start_day = ui.IntSlider(min=1,max=31)
-                        is_start_day.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Hour")
-                        is_start_hour = ui.IntSlider(min=0,max=23)
-                        is_start_hour.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Minute")
-                        is_start_minute = ui.IntSlider(min=0,max=59)
-                        is_start_minute.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Second")
-                        is_start_second = ui.IntSlider(min=0,max=59)
-                        is_start_second.model.add_end_edit_fn(update_simulation)
-                        # start_params == None
-                    spacer_end_setting = ui.Spacer(width=10)
+                    # Start Setting
+                    with ui.VStack(height=15):
+                        lb_start_date = labeled_label("Starting Date", height=30)
+                        is_start_year = int_slider("Year", 1901, 2099, (END_EDIT, update_simulation))
+                        is_start_month = int_slider("Month", 1, 12, (END_EDIT, update_simulation))
+                        is_start_day = int_slider("Day", 1, 31, (END_EDIT, update_simulation))  # TODO: Sync with month. Add listener?
+                        is_start_hour = int_slider("Hour", 0, 23, (END_EDIT, update_simulation))
+                        is_start_minute = int_slider("Minute", 0, 59, (END_EDIT, update_simulation))
+                        is_start_second = int_slider("Second", 0, 59, (END_EDIT, update_simulation))
+                        ui.Spacer(width=10)
 
-                    # Collects [setting_end] parameters.
-                    vstack_end_setting = ui.VStack(height=15)
+                    ui.Spacer(width=10)
+
+                    # End Setting
+                    vstack_end_setting = ui.VStack(height=15) ### VISION GROUP
+                    self.vg_subdivide.add(vstack_end_setting)
+                    self.vg_step_until.add(vstack_end_setting)
                     with vstack_end_setting:
-                        ### VISIBLE IF [increment_mode == 0 or 2]
-                        ui.Label("Ending Date", height=30)
-                        lb_end_date = ui.Label("")
-                        ui.Label("Year",height=30)
-                        is_end_year = ui.IntSlider(min=1901,max=2099)
-                        is_end_year.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Month")
-                        is_end_month = ui.IntSlider(min=1,max=12)
-                        is_end_month.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Day")
-                        is_end_day = ui.IntSlider(min=1,max=31)
-                        is_end_day.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Hour")
-                        is_end_hour = ui.IntSlider(min=0,max=23)
-                        is_end_hour.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Minute")
-                        is_end_minute = ui.IntSlider(min=0,max=59)
-                        is_end_minute.model.add_end_edit_fn(update_simulation)
-                        ui.Label("Second")
-                        is_end_second = ui.IntSlider(min=0,max=59)
-                        is_end_second.model.add_end_edit_fn(update_simulation)
-                        ### END VISIBLE
+                        lb_end_date = labeled_label("Ending Date", height=30)
+                        is_end_year = int_slider("Year", 1901, 2099, (END_EDIT, update_simulation))
+                        is_end_month = int_slider("Month", 1, 12, (END_EDIT, update_simulation))
+                        is_end_day = int_slider("Day", 1, 31, (END_EDIT, update_simulation))  # TODO: Sync with month. Add listener?
+                        is_end_hour = int_slider("Hour", 0, 23, (END_EDIT, update_simulation))
+                        is_end_minute = int_slider("Minute", 0, 59, (END_EDIT, update_simulation))
+                        is_end_second = int_slider("Second", 0, 59, (END_EDIT, update_simulation))
+                    
                 ui.Label(""); ui.Separator(height=15)
 
                 # Options for Color & Accessibility
                 ui.Label("Color Settings", height=45)
                 with ui.VStack():
-                    ui.Label("Enable Colors", height=0)
-                    cb_colors_on = ui.CheckBox(height=15)
-                    cb_colors_on.model.add_value_changed_fn(update_simulation)
-                    ui.Label("Colorblind Options", height=0)
+                    check_colors = check_box("Enable Colors", (VALUE_CHANGED, update_simulation))
 
-                    cb_color_filter = ui.ComboBox(0,"Full Color","Protanopia","Deuteranopia","Tritanopia").model
-                    def filter_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
+                    def color_filter_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
                         mode = combo_model.get_item_value_model().as_int
-                        if mode == 0:
-                            self.vision_type = VisionType.FULLCOLOR
-                        elif mode == 1:
-                            self.vision_type = VisionType.PROTANOPIA
-                        elif mode == 2:
-                            self.vision_type = VisionType.DEUTERANOPIA
-                        elif mode == 3:
-                            self.vision_type = VisionType.TRITANOPIA
-                        update_simulation(None)
-                    cb_color_filter.add_item_changed_fn(filter_changed_fn)
+                        if mode == 0:   self.vision_type =  VisionType.FULLCOLOR
+                        elif mode == 1: self.vision_type =  VisionType.PROTANOPIA
+                        elif mode == 2: self.vision_type =  VisionType.DEUTERANOPIA
+                        elif mode == 3: self.vision_type =  VisionType.TRITANOPIA
+                        update_simulation()
+                    combo_box("Colorblind Options",\
+                        ("Full Color", "Protanopia", "Deuteranopia", "Tritanopia"), (ITEM_CHANGED, color_filter_changed_fn))
 
-                ### VISIBLE IF [increment_mode == 0]
-                lb_sun_count = ui.Label("Solar Path Refinement")
-                is_sun_count = ui.IntSlider(min=0,max=365)
                 def sun_count_changed_fn(sun_count_model : ui.AbstractValueModel):
                     sun_count = sun_count_model.as_int
-                    update_simulation(None)
-                is_sun_count.model.add_end_edit_fn(sun_count_changed_fn)
-                ### END VISIBLE
+                    update_simulation()
+
+                is_sun_count = int_slider("Solar Path Refinement", 0, 365, (END_EDIT, sun_count_changed_fn))
 
                 ui.Label("Light Intensity")
                 is_light_intensity = ui.IntSlider(min=0,max=200)
                 def light_intensity_changed_fn(is_light_intensity : ui.AbstractValueModel):
-                    light_intensity = is_light_intensity.as_int
-                    update_simulation(None)
+                    self.light_intensity = is_light_intensity.as_int
+                    update_simulation()
                 is_light_intensity.model.add_end_edit_fn(light_intensity_changed_fn)
                 
                 ui.Label(""); ui.Separator(height=15)
@@ -281,6 +230,7 @@ class SunVec(omni.ext.IExt):
 
                 ui.Button("Clean-Up", clicked_fn=lambda: self.cleanup(), height=50)
 
+                self.vg_subdivide.set_state(True)
                 ### END OF UI BLOCK ###
 
         # For cleanliness, initialize to minimums to current day morning -> evening.
@@ -293,9 +243,7 @@ class SunVec(omni.ext.IExt):
         my_timezone = -4
         my_lat = 42.4534
         my_long = -76.4735  # -76 E = 76 W
-        my_suns = 50
-        my_intensity = 100
-
+        
         write(is_start_year, today_year); write(is_end_year, today_year)
         write(is_start_month, today_month); write(is_end_month, today_month)
         write(is_start_day, today_day); write(is_end_day, today_day)
@@ -305,28 +253,33 @@ class SunVec(omni.ext.IExt):
         write(ff_long, my_long); write(ff_lat, my_lat)
         write(is_timezone, my_timezone)
 
+        inc_steps = 24
+        inc_hours = 1
+
+        write(is_increment_steps, inc_steps)
+        write(is_increment_hours, inc_hours)
+
+        my_suns = 50
+        my_intensity = 100
+
         write(is_sun_count, my_suns)
         write(is_light_intensity, my_intensity)
 
         # Write to label
         update_setting()
 
-        def place_sun(name, sunvector_sph, color=(1,1,1)):
-                        create_distant_light(self.subdir, name)
-                        color_distant_light(self.subdir, name, color)
-                        intensity_distant_light(self.subdir, name, light_intensity)
-                        orient_distant_light(self.subdir, name, sunvector_sph)
-
         def polysun():
             self.cleanup()  # TODO: Smart cleanup; don't recalculate positions if only color change..etc.
             update_setting()
-            if increment_mode == 0:
+            update_incrementer()
+            if self.mode == 0:
                 sets = SettingRange(self.setting_start, self.setting_end).subdiv_range(sun_count)
-            elif increment_mode == 1:
-                ts = self.timespan_increment
-                sets = SettingRange(self.setting_start, self.setting_end).increment_range(ts)
-            elif increment_mode == 2:
-                sets = SettingRange(self.setting_start, self.setting_end).increment_until_range(ts)
+            elif self.mode == 1:
+                timespan = self.timespan_increment
+                sets = SettingRange(self.setting_start, self.setting_end).increment_range(timespan)
+            elif self.mode == 2:
+                timespan = self.timespan_increment
+                sets = SettingRange(self.setting_start, self.setting_end).increment_until_range(timespan)
 
             myspectrum = Spectrum(sets)
             i = 0
@@ -335,10 +288,10 @@ class SunVec(omni.ext.IExt):
                 i += 1
                 theta, phi = self.sunvec(s)
                 sunvector = sunvector_spherical(theta, phi)
-                if read_bool(cb_colors_on):
-                    place_sun(F"sunVector{i}", sunvector, RingColor(myspectrum, self.vision_type).color(i))
+                if read_bool(check_colors):
+                    self.place_sun(F"sunVector{i}", sunvector, RingColor(myspectrum, self.vision_type).color(i))
                 else:
-                    place_sun(F"sunVector{i}", sunvector)
+                    self.place_sun(F"sunVector{i}", sunvector)
 
     def on_shutdown(self):
         self.cleanup()
