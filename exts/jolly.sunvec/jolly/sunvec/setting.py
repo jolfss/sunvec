@@ -263,7 +263,7 @@ class SettingRange():
         return settings
 
     def increment_range(self, inc: Timespan, num):
-        assert inc > 0
+        assert inc.to_seconds() > 0
         settings = []
         i = 0
         while i < num:
@@ -272,10 +272,10 @@ class SettingRange():
         return settings
 
     def increment_until_range(self, inc: Timespan):
-        if (inc.to_seconds <= 0):
+        if (inc.to_seconds() <= 0):
             print("JOLLY.SUNVEC..non-positive increments are not permitted, defaulting to 1 second")
             inc = Timespan(0,0,0,0,0,1)
-        elif (self.end - self.start) / inc.to_seconds() > 100:
+        elif (self.end - self.start).to_seconds() / inc.to_seconds() > 100:
             print("JOLLY.SUNVEC..increment too small to bridge starting and ending date, limiting to 100 steps")
         settings = []
         i = 0

@@ -11,6 +11,8 @@ import omni.kit.commands
 import omni.usd
 from datetime import datetime
 
+# NOTE: +Z is the vertical direction; this is not Omniverse's default.
+
 #-----------#
 #   modes   #
 #-----------#
@@ -21,50 +23,60 @@ MODE_STEP = 1
 MODE_STEP_UNTIL = 2
 
 
+
 class SunVec(omni.ext.IExt):
+    """
+    SunVec is the main extension class and handles extension execution
+    """
 
     #---------------------------------------#
-    #   configuration settings/parameters   #  # TODO: Make a form class that sets all of these.
+    #   configuration settings/parameters   #  # TODO: Make a form class that sets all of these. -?
     #---------------------------------------#
 
     # Omniverse Directory
     extension_dump = "/World/JollyBin/"
 
+    
+
     # Default Increment Params (default : 1 Hour)
-    default_inc_years = 0
-    default_inc_months = 0
-    default_inc_days = 0
-    default_inc_hours = 1
-    default_inc_minutes = 0
-    default_inc_seconds = 0
+    inc_years = 0
+    inc_months = 0
+    inc_days = 0
+    inc_hours = 1
+    inc_minutes = 0
+    inc_seconds = 0
+    
+    inc_steps = 24
+
+    increment = Timespan(inc_years, inc_months, inc_days, inc_hours, inc_minutes, inc_seconds)
 
     # Default Location Params
-    default_lat = 42.4534  # Negative measurements are south.
-    default_long = -76.4735  # Negative measurements are west.
-    default_timezone = -4  # UTC
+    lat = 42.4534  # Negative measurements are south.
+    long = -76.4735  # Negative measurements are west.
+    timezone = -4  # UTC
 
     # Default Start Time Params (default : Today - 1 Hour)
-    default_start_year = datetime.today().year
-    default_start_month = datetime.today().month
-    default_start_day = datetime.today().day
-    default_start_hour = datetime.today().hour - 1 if datetime.today().hour > 0 else 0 # Handle Midnight Edge Case
-    default_start_minute = datetime.today().minute
-    default_start_second = datetime.today().second
+    start_year = datetime.today().year
+    start_month = datetime.today().month
+    start_day = datetime.today().day
+    start_hour = datetime.today().hour - 1 if datetime.today().hour > 0 else 0 # Handle Midnight Edge Case
+    start_minute = datetime.today().minute
+    start_second = datetime.today().second
+
+    setting_start = Setting(lat, long, start_year, start_month, start_day, start_hour, start_minute, start_second, timezone)
 
     # Default End Time Params (default : Today + 1 Hour)
-    default_end_year = datetime.today().year
-    default_end_month = datetime.today().month
-    default_end_day = datetime.today().day
-    default_end_hour = datetime.today().hour + 1 if datetime.today().hour < 23 else 23 # Handle Midnight Edge Case
-    default_end_minute = datetime.today().minute
-    default_end_second = datetime.today().second
+    end_year = datetime.today().year
+    end_month = datetime.today().month
+    end_day = datetime.today().day
+    end_hour = datetime.today().hour + 1 if datetime.today().hour < 23 else 23 # Handle Midnight Edge Case
+    end_minute = datetime.today().minute
+    end_second = datetime.today().second
 
-    #-----------------------#
-    #   visibility groups   #
-    #-----------------------#
+    setting_end = Setting(lat, long, end_year, end_month, end_day, end_hour, end_minute, end_second, timezone)
 
-    # Manages Visibility
-    visibles = VisibilityGroups()
+    # Default Light Params
+    intensity = 100
 
     #-------------------#
     #   accessibility   #
@@ -72,6 +84,14 @@ class SunVec(omni.ext.IExt):
 
     # Colorblind Settings
     color_mode = FULLCOLOR  # Assume FULLCOLOR by default.
+    color_toggle = False
+
+    #-----------------------#
+    #   visibility groups   #
+    #-----------------------#
+
+    # Manages Visibility
+    visibles = VisibilityGroups()
 
     # Visibles are groups of elements which are always displayed together and hidden together.
     vg_subdivide = Visibles("subdivide", default=True)
@@ -97,80 +117,141 @@ class SunVec(omni.ext.IExt):
     def mode_step_until(self):
         self.mode = MODE_STEP_UNTIL
         self.visibles.island_enable(self.vg_step_until)
+
+    #--------------------#
+    #   helper methods   #
+    #--------------------#
+
+    def cleanup(self):
+        """[cleanup()] clears the content folder given by [omniverse_directory]."""
+        delete(self.extension_dump[0:len(self.extension_dump)-1])
+
+    def birth_sun(self, name, sunvector_sph, color=(1,1,1)):
+        """[birth_sun(name, sunvector_sph, color=(1,1,1)] creates a sun in the direction of [sunvector_sph] 
+        with the emission color [color]; the primitive is named [name] and put in the directory [self.extension_dump]."""
+        create_distant_light(self.extension_dump, name)
+        color_distant_light(self.extension_dump, name, color)
+        intensity_distant_light(self.extension_dump, name, self.intensity)
+        orient_distant_light(self.extension_dump, name, sunvector_sph)
+
+    def sun_vector(self, setting: Setting):
+        """[sun_vector(setting)] is a tuple (azimuth, phi) which designates the sun location in the sky for the time and location of [setting]."""
+        azimuth, elevation = sunpos(setting.get_date(), setting.get_loc(), True)
+        azimuth = rad(azimuth)
+        elevation = rad(elevation)
+        return(azimuth, pi/2 - elevation)
     
+    def position_suns(self):
+        """[position_suns] places suns in the scene according to the mode and user params."""
+        if self.mode == MODE_SUBDIVIDE:
+            sets = SettingRange(self.setting_start, self.setting_end).subdiv_range(self.inc_steps)
+        elif self.mode == MODE_STEP:
+            sets = SettingRange(self.setting_start, self.setting_end).increment_range(self.increment, self.inc_steps)
+        elif self.mode == MODE_STEP_UNTIL:
+            sets = SettingRange(self.setting_start, self.setting_end).increment_until_range(self.increment)
+        
+
+        i = 0
+        for setting in sets:
+            i+=1
+            theta, phi = self.sun_vector(setting)
+            sun_vector = theta_phi_to_spherical(theta, phi)
+            if self.color_toggle:
+                self.birth_sun(F"sunVector{i}", sun_vector, RingColor(Spectrum(sets), self.color_mode).color(i))
+            else: 
+                self.birth_sun(F"sunVector{i}", sun_vector)
+
     #---------------------#
     #   events/triggers   #
     #---------------------#
 
+    # NOTE: Dummy=None arguments *ARE* needed to satisfy Omniverse's slider/button/field callbacks.
+
+    def stimulate(self):
+        """[stimulate()] is the main extension method; it places suns wherever the user has specified.
+        NOTE: This should be called after any update to the conditions."""
+        self.cleanup()
+        self.position_suns()
+
     def write_defaults(self): 
+        """[write_defaults] sets all user forms to their default values."""
         # Write Location Defaults
-        write(self.ff_lat, self.default_lat)
-        write(self.ff_long, self.default_long)
-        write(self.is_timezone, self.default_timezone)
+        write(self.ff_lat, self.lat)
+        write(self.ff_long, self.long)
+        write(self.is_timezone, self.timezone)
 
         # Write Increment Defaults
-        write(self.is_inc_years, self.default_inc_years)
-        write(self.is_inc_months, self.default_inc_months)
-        write(self.is_inc_days, self.default_inc_days)
-        write(self.is_inc_hours, self.default_inc_hours)
-        write(self.is_inc_minutes, self.default_inc_minutes)
-        write(self.is_inc_seconds, self.default_inc_seconds)
+        write(self.is_inc_years, self.inc_years)
+        write(self.is_inc_months, self.inc_months)
+        write(self.is_inc_days, self.inc_days)
+        write(self.is_inc_hours, self.inc_hours)
+        write(self.is_inc_minutes, self.inc_minutes)
+        write(self.is_inc_seconds, self.inc_seconds)
+
+        # Write Increment Steps Default
+        write(self.is_inc_steps, self.inc_steps)
 
         # Write Starting Date Defaults
-        write(self.is_start_year, self.default_start_year)
-        write(self.is_start_month, self.default_start_month)
-        write(self.is_start_day, self.default_start_day)
-        write(self.is_start_hour, self.default_start_hour)
-        write(self.is_start_minute, self.default_start_minute)
-        write(self.is_start_second, self.default_start_second)
+        write(self.is_start_year, self.start_year)
+        write(self.is_start_month, self.start_month)
+        write(self.is_start_day, self.start_day)
+        write(self.is_start_hour, self.start_hour)
+        write(self.is_start_minute, self.start_minute)
+        write(self.is_start_second, self.start_second)
 
         # Write Ending Date Defaults
-        write(self.is_end_year, self.default_end_year)
-        write(self.is_end_month, self.default_end_month)
-        write(self.is_end_day, self.default_end_day)
-        write(self.is_end_hour, self.default_end_hour)
-        write(self.is_end_minute, self.default_end_minute)
-        write(self.is_end_second, self.default_end_second)
+        write(self.is_end_year, self.end_year)
+        write(self.is_end_month, self.end_month)
+        write(self.is_end_day, self.end_day)
+        write(self.is_end_hour, self.end_hour)
+        write(self.is_end_minute, self.end_minute)
+        write(self.is_end_second, self.end_second)
 
-    def location_changed(self):  
+    def location_changed(self, dummy=None):
+        """[location_changed(dummy)] updates the location of both settings [self.setting_start], [self.setting_end]."""
         self.lat = read_float(self.ff_lat)  
         self.long = read_float(self.ff_long)
         self.timezone = read_int(self.is_timezone)
-        
-        self.start_changed()
-        self.end_changed()
 
-    def inc_changed(self):
+        self.stimulate()
+
+    def inc_changed(self, dummy=None):
+        """[inc_changed(dummy)] updates the Timespan [self.increment] to match the user forms."""
         self.inc_years = read_int(self.is_inc_years)
         self.inc_months = read_int(self.is_inc_months)
         self.inc_days = read_int(self.is_inc_days)
         self.inc_hours = read_int(self.is_inc_hours)
-        self.inc_seconds = read_int(self.is_inc_minutes)
-        self.inc_minutes = read_int(self.is_inc_seconds)
+        self.inc_minutes = read_int(self.is_inc_minutes)
+        self.inc_seconds = read_int(self.is_inc_seconds)
 
         self.increment = Timespan(self.inc_years, self.inc_months, self.inc_days, \
             self.inc_hours, self.inc_minutes, self.inc_seconds)
-    
-    def inc_steps_changed(self):
+        
+        self.stimulate()
+
+    def inc_steps_changed(self, dummy=None):
+        """[inc_steps_changed(dummy)] updates [self.inc_steps] to match the int slider [self.is_inc_steps]."""
         self.inc_steps = read_int(self.is_inc_steps)
 
-        self.increment = Timespan(self.inc_years, self.inc_months, self.inc_days, \
-            self.inc_hours, self.inc_minutes, self.inc_seconds)
+        self.stimulate()
 
-    def start_changed(self):
+    def start_changed(self, dummy=None):
+        """[start_changed(dummy)] updates the Setting [self.setting_start] to match the user forms."""
         self.start_year = read_int(self.is_start_year)
         self.start_month = read_int(self.is_start_month)
         self.start_day = read_int(self.is_start_day)
         self.start_hour = read_int(self.is_start_hour)
         self.start_minute = read_int(self.is_start_minute)
         self.start_second = read_int(self.is_start_second)
-
-        self.start_setting = \
+        self.setting_start = \
             Setting(self.lat, self.long, self.start_year, self.start_month, \
-                self.start_day, self.start_hour, self.start_minute, self.start_second)
-        self.lb_start_date.text = str(self.start_setting)
+                self.start_day, self.start_hour, self.start_minute, self.start_second, self.timezone)
+        self.lb_start_date.text = str(self.setting_start)
+
+        self.stimulate()
     
-    def end_changed(self):
+    def end_changed(self, dummy=None):
+        """[end_changed(dummy)] updates the Setting [self.setting_end] to match the user forms."""
         self.end_year = read_int(self.is_end_year)
         self.end_month = read_int(self.is_end_month)
         self.end_day = read_int(self.is_end_day)
@@ -178,32 +259,43 @@ class SunVec(omni.ext.IExt):
         self.end_minute = read_int(self.is_end_minute)
         self.end_second = read_int(self.is_end_second)
 
-        self.end_setting = \
+        self.setting_end = \
             Setting(self.lat, self.long, self.end_year, self.end_month, \
-                self.end_day, self.end_hour, self.end_minute, self.end_second)
-        self.lb_end_date.text = str(self.end_setting)
+                self.end_day, self.end_hour, self.end_minute, self.end_second, self.timezone)
+        self.lb_end_date.text = str(self.setting_end)
 
-    def color_mode_changed(self):
-        pass
+        self.stimulate()
 
-    def sunVec(self, setting: Setting):
-        azimuth, elevation = sunpos(setting.get_date(), setting.get_loc(), True)
-        azimuth = rad(azimuth)
-        elevation = rad(elevation)
-        return(azimuth, pi/2 - elevation)
-    
-    sunVec
-    def birth_sun(self, name, sunvector_sph, color=(1,1,1)):
-                create_distant_light(self.extension_dump, name)
-                color_distant_light(self.extension_dump, name, color)
-                intensity_distant_light(self.extension_dump, name, self.light_intensity)
-                orient_distant_light(self.extension_dump, name, sunvector_sph)
+    def toggle_colors(self, dummy=None):
+        """[toggle_colors(check_box)] matches the state of [self.color_toggle]
+                           with the state of the checkbox [self.chbx_color_toggle]."""
+        self.color_toggle = read_bool(self.chbx_color_toggle)
+        print(self.color_toggle)
+        self.stimulate()
 
-    #------------------------------#
-    #   omniverse extension main   #
-    #------------------------------#
-    def on_startup(self, ext_id):
-        
+    def color_filter_changed(self, dummyA=None, dummyB=None):
+        """[color_filter_changed] changes [color_type] to match the combo box [cmbx_color_filter];
+        NOTE: will bring user out of GRAYSCALE if they choose a color mode from the combo box. """
+        self.color_toggle = True; write(self.chbx_color_toggle, True); self.toggle_colors(self.chbx_color_toggle)
+        color_type = self.cmbx_color_filter.model.get_item_value_model().as_int
+        if color_type == 0: self.color_mode =  FULLCOLOR
+        elif color_type == 1: self.color_mode =  PROTANOPIA
+        elif color_type == 2: self.color_mode =  DEUTERANOPIA
+        elif color_type == 3: self.color_mode =  TRITANOPIA
+
+        self.stimulate()
+
+    def intensity_changed(self, dummy=None):
+        """[intensity_changed(intensity) updates the solar intensity."""
+        self.intensity = self.is_intensity.model.as_int
+        self.stimulate()
+
+    #----------------------#
+    #   startup routines   #
+    #----------------------#
+
+    def pre_initialization(self):
+        """[pre_initialization()] creates extension scope and removes default world lighting; cleans remnants."""
         # Make directory for extension primitives.
         create_scope(self.extension_dump[0:len(self.extension_dump)-1])
         
@@ -213,14 +305,38 @@ class SunVec(omni.ext.IExt):
 
         print("JOLLY.SUNVEC..startup")
 
-        ### Omniverse UI
+    def post_initialize(self):
+        """[post_initialize()] links the scene to the UI and begins simulation."""
+        self.mode_subdivide()  # Puts user in MODE_SUBDIVIDE.
+        self.write_defaults()  # Write default values into
+
+        self.location_changed()  # Updates latitude, longitude, and timezone.
+        self.inc_changed()  # Updates the increment Timescale object [self.increment : Timescale]
+        self.inc_steps_changed()  # Updates how many increments/divisions of the sunpath are registered.
+        self.start_changed()  # Presets the starting Setting object.
+        self.end_changed()  # Presets the starting End object.
+
+        self.color_filter_changed(self.cmbx_color_filter)
+
+        self.stimulate()
+
+    #------------------------------#
+    #   omniverse extension main   #
+    #------------------------------#
+    def on_startup(self, ext_id):
+
+        self.pre_initialization()
+
+        ############################
+        #   Begin User Interface   #
+        ############################
         self._window = ui.Window("JOLLY.SUNVEC", width=500, height=1100)
         with self._window.frame:
             with ui.VStack(height=30):
                 # Set location.
-                self.ff_lat = float_field("Latitude", -90, 90, (END_EDIT, self.start_changed))
-                self.ff_long = float_field("Longitude", -180, 180, (END_EDIT, self.start_changed))
-                self.is_timezone = int_slider("Timezone (from UTC)",-12, 14, (END_EDIT, self.start_changed))
+                self.ff_lat = float_field("Latitude", -90, 90, (END_EDIT, self.location_changed))
+                self.ff_long = float_field("Longitude", -180, 180, (END_EDIT, self.location_changed))
+                self.is_timezone = int_slider("Timezone (from UTC)",-12, 14, (END_EDIT, self.location_changed))
 
                 separate(15)
                 
@@ -249,7 +365,7 @@ class SunVec(omni.ext.IExt):
                         with ui.VStack(): self.is_inc_seconds = int_slider("Seconds", 0, 59, (END_EDIT, self.inc_changed))
 
                 self.is_inc_steps = int_slider("Number of Increments", 0, 100, \
-                    (END_EDIT, self.update_incrementer))
+                    (END_EDIT, self.inc_steps_changed))
                 
                 separate()
 
@@ -269,10 +385,10 @@ class SunVec(omni.ext.IExt):
                     ui.Spacer(width=10)
 
                     # End Setting
-                    vstack_end_setting = ui.VStack(height=15) ### VISION GROUP
-                    self.vg_subdivide.add(vstack_end_setting)
-                    self.vg_step_until.add(vstack_end_setting)
-                    with vstack_end_setting:
+                    vstack_setting_end = ui.VStack(height=15) ### VISION GROUP
+                    self.vg_subdivide.add(vstack_setting_end)
+                    self.vg_step_until.add(vstack_setting_end)
+                    with vstack_setting_end:
                         self.lb_end_date = labeled_label("Starting Date", height=30)
                         self.is_end_year = int_slider("Year", 1901, 2099, (END_EDIT, self.end_changed))
                         self.is_end_month = int_slider("Month", 1, 12, (END_EDIT, self.end_changed))
@@ -286,35 +402,25 @@ class SunVec(omni.ext.IExt):
                 # Options for Color & Accessibility
                 ui.Label("Color Settings", height=45)
                 with ui.VStack():
-                    check_box("Enable Colors", (VALUE_CHANGED, self.color_mode_changed))
+                    self.chbx_color_toggle = check_box("Enable Colors", (VALUE_CHANGED, self.toggle_colors))
+                    self.cmbx_color_filter = combo_box("Colorblind Options",\
+                        ("Full Color", "Protanopia", "Deuteranopia", "Tritanopia"), (ITEM_CHANGED, self.color_filter_changed))
+                self.is_intensity = int_slider("Light Intensity", 0, 200, (END_EDIT, self.intensity_changed))
 
-                    def color_filter_changed_fn(combo_model : ui.AbstractItemModel, item : ui.AbstractItem):
-                        mode = combo_model.get_item_value_model().as_int
-                        if mode == -1:   self.color_mode =  FULLCOLOR
-                        elif mode == 0:   self.color_mode =  FULLCOLOR
-                        elif mode == 1: self.color_mode =  PROTANOPIA
-                        elif mode == 2: self.color_mode =  DEUTERANOPIA
-                        elif mode == 3: self.color_mode =  TRITANOPIA
-                    combo_box("Colorblind Options",\
-                        ("Full Color", "Protanopia", "Deuteranopia", "Tritanopia"), (ITEM_CHANGED, color_filter_changed_fn))
+                separate()
 
-                ui.Label("Light Intensity")
-                is_light_intensity = ui.IntSlider(min=0,max=200)
-                def light_intensity_changed_fn(is_light_intensity : ui.AbstractValueModel):
-                    self.light_intensity = is_light_intensity.as_int
-                is_light_intensity.model.add_end_edit_fn(light_intensity_changed_fn)
-                
-                ui.Label(""); ui.Separator(height=15)
-                ui.Button("Place Sun", clicked_fn=lambda: polysun(), height=50)
+                # Place should be irrelevant now by listeners.
+                # ui.Button("Place Sun", clicked_fn=lambda: self.stimulate(), height=50)
 
                 ui.Button("Clean-Up", clicked_fn=lambda: self.cleanup(), height=50)
+            ##########################
+            #   End User Interface   #
+            ##########################
 
-                self.vg_subdivide.set_state(True)
-                ### END OF UI BLOCK ###
+        self.post_initialize()
 
+        # on_startup() ends here
+            
     def on_shutdown(self):
         self.cleanup()
         print("JOLLY.SUNVEC..shutdown")
-
-def cleanup(self):
-        delete(self.extension_dump[0:len(self.extension_dump)-1])

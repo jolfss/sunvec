@@ -20,7 +20,7 @@ def read_int(field: ui.AbstractValueModel):
 def read_float(field: ui.AbstractValueModel):
     return(field.model.as_float)
 
-def read_bool(field: ui.AbstractValueModel):
+def read_bool(field: ui.CheckBox):
     return(field.model.as_bool)
 
 def separate(height=0):

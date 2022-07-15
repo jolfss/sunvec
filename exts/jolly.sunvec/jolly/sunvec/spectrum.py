@@ -2,6 +2,7 @@ from enum import Enum
 from math import cos, pi, sin, sqrt
 from jolly.sunvec.setting import SettingRange
 
+GRAYSCALE = -1
 FULLCOLOR = 0
 PROTANOPIA = 1
 DEUTERANOPIA = 2
@@ -38,14 +39,16 @@ class Color():
         yellow = (red + green)/2
         cyan = (green + blue)/2
         
+        
+        
         if self.vision_type == FULLCOLOR:
             return red, green, blue
         elif self.vision_type == PROTANOPIA:
-            return max(red, green) - min(blue, cyan) , max(red, green) - min(blue, cyan), blue - min(red, yellow)
+            return red - cyan, red - cyan, blue - yellow
         elif self.vision_type == DEUTERANOPIA: 
-            return max(red, green) - min(blue, cyan) , max(red, green) - min(blue, cyan), blue - min(red, yellow)
+            return red - cyan , red - cyan, blue - yellow
         elif self.vision_type == TRITANOPIA: 
-            return red - min(blue, cyan), max(green, blue) - min(red, yellow), max(green, blue) - min(red, yellow)
+            return yellow - cyan, cyan - yellow, cyan - yellow
 
     def color_spectrum(self):
         pallet = []
@@ -55,7 +58,7 @@ class Color():
 
 
 class RingColor(Color):
-    def __init__(self, spectrum, vision_type, max_angle=(3/2)*pi):  # TODO: Abstract angle away into a colorspace rep?
+    def __init__(self, spectrum, vision_type, max_angle=(7/4)*pi):  # TODO: Abstract angle away into a colorspace rep?
         super().__init__(spectrum, vision_type)
         if vision_type == FULLCOLOR:
             self.offset = -(1/8)*pi

@@ -34,7 +34,8 @@ def create_sphere(path, name, vec3d, rad, ):
 def create_scope(path):
     omni.kit.commands.execute('CreatePrimWithDefaultXform',
         prim_type='Scope',
-        prim_path= f"{path}"
+        prim_path= f"{path}",
+        attributes={}
         )
 
 def create_distant_light(path, name):
