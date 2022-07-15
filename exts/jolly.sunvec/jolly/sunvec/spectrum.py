@@ -2,11 +2,10 @@ from enum import Enum
 from math import cos, pi, sin, sqrt
 from jolly.sunvec.setting import SettingRange
 
-class VisionType(Enum):
-    FULLCOLOR = 0
-    PROTANOPIA = 1
-    DEUTERANOPIA = 2
-    TRITANOPIA = 3
+FULLCOLOR = 0
+PROTANOPIA = 1
+DEUTERANOPIA = 2
+TRITANOPIA = 3
 
 class Spectrum():
     def __init__(self, list_settings : list):
@@ -15,7 +14,7 @@ class Spectrum():
         return self.length
 
 class Color():
-    def __init__(self, spectrum, vision_type=VisionType.FULLCOLOR):
+    def __init__(self, spectrum, vision_type=FULLCOLOR):
         self.spectrum = spectrum
         self.vision_type = vision_type
 
@@ -39,13 +38,13 @@ class Color():
         yellow = (red + green)/2
         cyan = (green + blue)/2
         
-        if self.vision_type == VisionType.FULLCOLOR:
+        if self.vision_type == FULLCOLOR:
             return red, green, blue
-        elif self.vision_type == VisionType.PROTANOPIA:
+        elif self.vision_type == PROTANOPIA:
             return max(red, green) - min(blue, cyan) , max(red, green) - min(blue, cyan), blue - min(red, yellow)
-        elif self.vision_type == VisionType.DEUTERANOPIA:  # Without GREEN
+        elif self.vision_type == DEUTERANOPIA: 
             return max(red, green) - min(blue, cyan) , max(red, green) - min(blue, cyan), blue - min(red, yellow)
-        elif self.vision_type == VisionType.TRITANOPIA:  # Without BLUE
+        elif self.vision_type == TRITANOPIA: 
             return red - min(blue, cyan), max(green, blue) - min(red, yellow), max(green, blue) - min(red, yellow)
 
     def color_spectrum(self):
@@ -58,15 +57,15 @@ class Color():
 class RingColor(Color):
     def __init__(self, spectrum, vision_type, max_angle=(3/2)*pi):  # TODO: Abstract angle away into a colorspace rep?
         super().__init__(spectrum, vision_type)
-        if vision_type == VisionType.FULLCOLOR:
+        if vision_type == FULLCOLOR:
             self.offset = -(1/8)*pi
-        elif vision_type == VisionType.PROTANOPIA:
+        elif vision_type == PROTANOPIA:
             max_angle = -(3/4)*pi
             self.offset = (1/16)*pi
-        elif vision_type == VisionType.DEUTERANOPIA:
+        elif vision_type == DEUTERANOPIA:
             max_angle = -(3/4)*pi
             self.offset = (1/16)*pi
-        elif vision_type == VisionType.TRITANOPIA:
+        elif vision_type == TRITANOPIA:
             max_angle = -(3/4)*pi
             self.offset = (1/16)*pi
             

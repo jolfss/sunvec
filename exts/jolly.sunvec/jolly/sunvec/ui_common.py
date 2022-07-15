@@ -26,11 +26,6 @@ def read_bool(field: ui.AbstractValueModel):
 def separate(height=0):
     return (ui.Label(""), ui.Separator(height=height))
 
-"""
-[labeled_label(name, min, max, register_fns)] is a labeled, empty label to be rewritten later.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a label event and
-[response] is some effect.
-"""
 def labeled_label(name, height=DEFAULT_LABEL_HEIGHT, width=DEFAULT_LABEL_WIDTH, *register_fns):
     ui.Label(name, height=height, width=width)
     new_element = ui.Label("")
@@ -38,11 +33,6 @@ def labeled_label(name, height=DEFAULT_LABEL_HEIGHT, width=DEFAULT_LABEL_WIDTH, 
         trigger(new_element, response)
     return new_element
 
-"""
-[int_slider(name, min, max, register_fns)] is an int slider from min to max with all callbacks attached.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a slider event and
-[response] is some effect.
-"""
 def int_slider(name, min=0, max=10, *register_fns):
     ui.Label(name)
     new_element = ui.IntSlider(min=min, max=max)
@@ -50,11 +40,6 @@ def int_slider(name, min=0, max=10, *register_fns):
         trigger(new_element.model, response)
     return new_element
 
-"""
-[float_field(name, min, max, register_fns)] is a float field that takes values from min to max with callbacks attached.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a field event and
-[response] is some effect.
-"""
 def float_field(name, min=0, max=10, *register_fns):
     ui.Label(name)
     new_element = ui.FloatField(min=min, max=max)
@@ -62,22 +47,12 @@ def float_field(name, min=0, max=10, *register_fns):
         trigger(new_element.model, response)
     return new_element
 
-"""
-[float_field(name, min, max, register_fns)] is a float field that takes values from min to max with callbacks attached.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a field event and
-[response] is some effect.
-"""
 def button(name, clicked_fn, height=50, *register_fns):
     new_element = ui.Button(text=name, height=height, clicked_fn=lambda : clicked_fn())
     for trigger, response in register_fns:
         trigger(new_element, response)
     return new_element
 
-"""
-[float_field(name, min, max, register_fns)] is a float field that takes values from min to max with callbacks attached.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a field event and
-[response] is some effect.
-"""
 def check_box(name, *register_fns):
     ui.Label(name)
     new_element = ui.CheckBox()
@@ -85,11 +60,6 @@ def check_box(name, *register_fns):
         trigger(new_element.model, response)
     return new_element
 
-"""
-[float_field(name, min, max, register_fns)] is a float field that takes values from min to max with callbacks attached.
-[register_fns] is a list of lambda pairs (trigger, response) where [trigger] is a field event and
-[response] is some effect.
-"""
 def combo_box(name, options, *register_fns):
     ui.Label(name)
     new_element = ui.ComboBox(0, *(options))
@@ -98,8 +68,6 @@ def combo_box(name, options, *register_fns):
     return new_element
 
 class Visibles():
-
-
     def __init__(self, name, default=False):
         self._members = []
         self._state = False
@@ -131,10 +99,8 @@ class VisibilityGroups():
         for vg in vgs:
             self._visibility_groups.append(vg)
     
-    """
-    [island_enable(vg0, vg1, ...)] makes only the keep_true VisibilityGroups visible.
-    """
     def island_enable(self, *keep_true):
+        """ Disables everything but the groups in [*keep_true], which are all enabled. """
         for vg in self._visibility_groups:
             vg.set_state(False)
         for vg in keep_true:

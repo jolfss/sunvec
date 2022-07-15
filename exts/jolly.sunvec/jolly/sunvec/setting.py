@@ -14,6 +14,8 @@ S - S -> TS (span between settings)
 S << S -> Bool (setting occurs before setting)
 """
 
+
+
 class Timespan():
     def __init__(self, years, months, days, hours, minutes, seconds):
         self.years = years
