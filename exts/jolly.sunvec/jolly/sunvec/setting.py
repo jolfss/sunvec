@@ -76,33 +76,6 @@ class Timespan():
             self.seconds - other.seconds)
         return(self.__from_seconds(unconsolidated.to_seconds()))
 
-    """
-    [__scale(n) is this Timespan scaled by n, REQUIRES: This timespan contains only non-negative fields.]
-    """
-    def __mul__(self, n):
-        total = self.to_seconds() * n
-        assert self.years >= 0 and self.months >= 0 and self.days >= 0 and self.hours >= 0 and self.minutes >= 0
-
-        years = total // 31556952
-        total = total % 31556952
-
-        months = total // 2628288
-        total = total % 2628288
-
-        days = total // 86400
-        total = total % 86400
-
-        hours = total // 3600
-        total = total % 3600
-
-        minutes = total // 60
-        total = total % 60
-  
-        seconds = total
-        return Timespan(years, months, days, hours, minutes, seconds)
-
-
-
 """
 Setting is an immutable representation of a date.
 """
@@ -163,17 +136,21 @@ class Setting():
         new_hours += (new_minutes // 60); new_minutes = new_minutes % 60
         days_to_step = interval.days + (new_hours // 24); new_hours = new_hours % 24
 
-        for i in range(0, int(days_to_step)):
-            new_day += 1
+        for _ in range(0, int(days_to_step)):
             if not(self.valid_day(new_day, self.month, self.year)):
                 new_day = 1
                 new_month += 1
-                if new_month > 12:
-                    new_month = 1
-                    new_year += 1
+
+            if new_month > 12:
+                new_month = 1
+                new_year += 1
+
+            new_day += 1
         
-        new_month += (interval.months % 12) 
-        new_year += (interval.years + (interval.months // 12))
+        # The -1 +1 stuff is because Settings have months stored [1...12] where Timespans go [0...11]. 
+        new_year += (new_month - 1 + interval.months) // 12
+        new_month = ((new_month + (interval.months % 12) - 1)) % 12 + 1  
+
         
         return(Setting(self.lat, self.long, int(new_year), int(new_month), int(new_day), \
              int(new_hours), int(new_minutes), int(new_seconds), int(self.timezone)))
@@ -267,7 +244,8 @@ class SettingRange():
         settings = []
         i = 0
         while i < num:
-            settings.append(self.start + (inc * i))
+            self.start += inc
+            settings.append(self.start)
             i += 1
         return settings
 
@@ -279,8 +257,9 @@ class SettingRange():
             print("JOLLY.SUNVEC..increment too small to bridge starting and ending date, limiting to 100 steps")
         settings = []
         i = 0
-        while (self.end - (self.start + (inc * i))).nonnegative():
-            settings.append(self.start + (inc * i))
+        while (self.end - (self.start + inc)).nonnegative():
+            self.start += inc
+            settings.append(self.start + inc)
             i += 1
             if i == 101:  
                 break

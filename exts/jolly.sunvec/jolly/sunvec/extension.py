@@ -150,7 +150,6 @@ class SunVec(omni.ext.IExt):
         elif self.mode == MODE_STEP_UNTIL:
             sets = SettingRange(self.setting_start, self.setting_end).increment_until_range(self.increment)
         
-
         i = 0
         for setting in sets:
             i+=1
@@ -358,7 +357,7 @@ class SunVec(omni.ext.IExt):
                     ui.Label("Incremental Step", height=30)
                     with ui.HStack():
                         with ui.VStack(): self.is_inc_years = int_slider("Years", 0, 10, (END_EDIT, self.inc_changed))
-                        with ui.VStack(): self.is_inc_months = int_slider("Months", 0, 12, (END_EDIT, self.inc_changed))
+                        with ui.VStack(): self.is_inc_months = int_slider("Months", 0, 11, (END_EDIT, self.inc_changed))
                         with ui.VStack(): self.is_inc_days = int_slider("Days", 0, 31, (END_EDIT, self.inc_changed))  # TODO: Sync with month. Add listener?
                         with ui.VStack(): self.is_inc_hours = int_slider("Hours", 0, 23, (END_EDIT, self.inc_changed))
                         with ui.VStack(): self.is_inc_minutes = int_slider("Minutes", 0, 59, (END_EDIT, self.inc_changed))
