@@ -39,14 +39,14 @@ class Color():
         yellow = (red + green)/2
         cyan = (green + blue)/2
         
-        
+        rt2vr2 = sqrt(2)/2
         
         if self.vision_type == FULLCOLOR:
             return red, green, blue
         elif self.vision_type == PROTANOPIA:
-            return red - cyan, red - cyan, blue - yellow
+            return (red - cyan)/2, (red - cyan)/2, (blue - yellow)/2
         elif self.vision_type == DEUTERANOPIA: 
-            return red - cyan , red - cyan, blue - yellow
+            return (red - cyan)/2, (red - cyan)/2, (blue - yellow)/2
         elif self.vision_type == TRITANOPIA: 
             return yellow - cyan, cyan - yellow, cyan - yellow
 

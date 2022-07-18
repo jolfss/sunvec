@@ -11,6 +11,8 @@ import omni.kit.commands
 import omni.usd
 from datetime import datetime
 
+import jolly.sunvec.tesy as jst
+
 # NOTE: +Z is the vertical direction; this is not Omniverse's default.
 
 #-----------#
@@ -222,7 +224,6 @@ class SunVec(omni.ext.IExt):
         self.inc_hours = read_int(self.is_inc_hours)
         self.inc_minutes = read_int(self.is_inc_minutes)
         self.inc_seconds = read_int(self.is_inc_seconds)
-
         self.increment = Timespan(self.inc_years, self.inc_months, self.inc_days, \
             self.inc_hours, self.inc_minutes, self.inc_seconds)
         
@@ -269,7 +270,6 @@ class SunVec(omni.ext.IExt):
         """[toggle_colors(check_box)] matches the state of [self.color_toggle]
                            with the state of the checkbox [self.chbx_color_toggle]."""
         self.color_toggle = read_bool(self.chbx_color_toggle)
-        print(self.color_toggle)
         self.stimulate()
 
     def color_filter_changed(self, dummyA=None, dummyB=None):
@@ -410,7 +410,7 @@ class SunVec(omni.ext.IExt):
 
                 # Place should be irrelevant now by listeners.
                 # ui.Button("Place Sun", clicked_fn=lambda: self.stimulate(), height=50)
-
+                ui.Button("Place Suns", clicked_fn=lambda: self.position_suns(), height=50)
                 ui.Button("Clean-Up", clicked_fn=lambda: self.cleanup(), height=50)
             ##########################
             #   End User Interface   #
