@@ -77,10 +77,16 @@ class Timespan():
         return(self.__from_seconds(unconsolidated.to_seconds()))
 
     """
-    [__scale(n) is this Timespan scaled by n, REQUIRES:.]
+    [__mul__(f)] is the same proportion of this timespan as f is to 1. 
+    NOTE: Temporarily requires 0 <= f <= 1
+    TODO: Make this work for all f.
     """
-    def __mul__(self, n):
-        total = self.to_seconds() * n
+    def __mul__(self, f):
+        # Temporary assert
+        assert 0 <= f and f <= 1
+
+        total = self.to_seconds() * f
+
         assert self.years >= 0 and self.months >= 0 and self.days >= 0 and self.hours >= 0 and self.minutes >= 0
 
         years = total // 31556952
