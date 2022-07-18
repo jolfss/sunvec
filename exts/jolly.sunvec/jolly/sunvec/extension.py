@@ -11,9 +11,8 @@ import omni.kit.commands
 import omni.usd
 from datetime import datetime
 
-import jolly.sunvec.tesy as jst
-
 # NOTE: +Z is the vertical direction; this is not Omniverse's default.
+# TODO: Add a +Axis toggle.
 
 #-----------#
 #   modes   #
