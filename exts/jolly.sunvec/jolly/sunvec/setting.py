@@ -76,6 +76,33 @@ class Timespan():
             self.seconds - other.seconds)
         return(self.__from_seconds(unconsolidated.to_seconds()))
 
+    """
+    [__scale(n) is this Timespan scaled by n, REQUIRES:.]
+    """
+    def __mul__(self, n):
+        total = self.to_seconds() * n
+        assert self.years >= 0 and self.months >= 0 and self.days >= 0 and self.hours >= 0 and self.minutes >= 0
+
+        years = total // 31556952
+        total = total % 31556952
+
+        months = total // 2628288
+        total = total % 2628288
+
+        days = total // 86400
+        total = total % 86400
+
+        hours = total // 3600
+        total = total % 3600
+
+        minutes = total // 60
+        total = total % 60
+  
+        seconds = total
+        return Timespan(years, months, days, hours, minutes, seconds)
+
+
+
 """
 Setting is an immutable representation of a date.
 """
